@@ -14,7 +14,18 @@ local ThemeManager = {} do
 		['Tokyo Night'] 	= { 6, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"191925","AccentColor":"6759b3","BackgroundColor":"16161f","OutlineColor":"323232"}') },
 		['Ubuntu'] 			= { 7, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"3e3e3e","AccentColor":"e2581e","BackgroundColor":"323232","OutlineColor":"191919"}') },
 		['Quartz'] 			= { 8, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"232330","AccentColor":"426e87","BackgroundColor":"1d1b26","OutlineColor":"27232f"}') },
+		['Dracula'] 		= { 9, httpService:JSONDecode('{"FontColor":"f8f8f2","MainColor":"282a36","AccentColor":"bd93f9","BackgroundColor":"21222c","OutlineColor":"44475a"}') },
+		['One Dark'] 		= { 10, httpService:JSONDecode('{"FontColor":"abb2bf","MainColor":"282c34","AccentColor":"61afef","BackgroundColor":"21252b","OutlineColor":"3e4451"}') },
+		['Nord'] 			= { 11, httpService:JSONDecode('{"FontColor":"eceff4","MainColor":"2e3440","AccentColor":"88c0d0","BackgroundColor":"242933","OutlineColor":"4c566a"}') },
+		['Cyberpunk'] 		= { 12, httpService:JSONDecode('{"FontColor":"00f0ff","MainColor":"120136","AccentColor":"f35588","BackgroundColor":"03001e","OutlineColor":"400082"}') },
+		['Gruvbox'] 		= { 13, httpService:JSONDecode('{"FontColor":"fbf1c7","MainColor":"282828","AccentColor":"fe8019","BackgroundColor":"1d2021","OutlineColor":"3c3836"}') },
+		['Vampire'] 		= { 14, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"1a0f0f","AccentColor":"ff3333","BackgroundColor":"110a0a","OutlineColor":"2d1a1a"}') },
+		['Oceanic'] 		= { 15, httpService:JSONDecode('{"FontColor":"d8dee9","MainColor":"1b2b34","AccentColor":"6699cc","BackgroundColor":"16232a","OutlineColor":"343d46"}') },
+		['Monokai'] 		= { 16, httpService:JSONDecode('{"FontColor":"f8f8f2","MainColor":"272822","AccentColor":"a6e22e","BackgroundColor":"1e1f1c","OutlineColor":"3e3d32"}') },
+		['Skeet'] 			= { 17, httpService:JSONDecode('{"FontColor":"ffffff","MainColor":"111111","AccentColor":"a2cd5a","BackgroundColor":"171717","OutlineColor":"222222"}') },
+		['Ugly'] 			= { 18, httpService:JSONDecode('{"FontColor":"00ff00","MainColor":"5c4033","AccentColor":"ff00ff","BackgroundColor":"3b2314","OutlineColor":"ff0000"}') },
 	}
+
 
 	function ThemeManager:ApplyTheme(theme)
 		local customThemeData = self:GetCustomTheme(theme)
