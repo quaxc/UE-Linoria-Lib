@@ -1,4 +1,4 @@
-local repo = "https://raw.githubusercontent.com/yenkgg/UE-Linoria-Lib/main/"
+local repo = "https://raw.githubusercontent.com/quaxc/UE-Linoria-Lib/main/"
 
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
@@ -21,7 +21,7 @@ local Window = Library:CreateWindow({
 	-- Position and Size are also valid options here
 	-- but you do not need to define them unless you are changing them :)
 
-	Title = "Example menu",
+	Title = "konata.fun | dsc.gg/konata",
 	Center = true,
 	AutoShow = true,
 	Resizable = true,
