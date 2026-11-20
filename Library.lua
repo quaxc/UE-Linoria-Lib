@@ -49,7 +49,7 @@ local Library = {
 
     Toggled = false;
     WireframeDrag = true;
-    UseBlur = false;
+    UseBlur = true;
     BlurSize = 15;
 
     KeybindMode = 'All';
@@ -3297,7 +3297,7 @@ function Library:CreateWindow(...)
         if success and info and info.Name then
             MapNameLabel.Text = info.Name
         else
-            MapNameLabel.Text = game.Name or "Unknown Map"
+            MapNameLabel.Text = game.Name or "unknown game"
         end
     end)
 
