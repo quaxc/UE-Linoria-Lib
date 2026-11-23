@@ -3297,7 +3297,7 @@ function Library:CreateWindow(...)
             Image = iconImage,
             ImageTransparency = 0,
             AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.new(1, -4, 0.5, 0),
+            Position = UDim2.new(1, 24, 0.5, 0), -- peeks out from the right side of the window
             Size = UDim2.fromOffset(76, 76),
             Rotation = 0,
             ZIndex = 1,
