@@ -60,9 +60,9 @@ local Library = {
     Keys = {
         KeyBoard = {["Q"] = "Q", ["W"] = "W", ["E"] = "E", ["R"] = "R", ["T"] = "T", ["Y"] = "Y", ["U"] = "U", ["I"] = "I", ["O"] = "O", ["P"] = "P", ["A"] = "A", ["S"] = "S", ["D"] = "D", ["F"] = "F", ["G"] = "G", ["H"] = "H", ["J"] = "J", ["K"] = "K", ["L"] = "L", ["Z"] = "Z", ["X"] = "X", ["C"] = "C", ["V"] = "V", ["B"] = "B", ["N"] = "N", ["M"] = "M", ["One"] = {"1", "!"}, ["Two"] = {"2", "\""}, ["Three"] = {"3", "£"}, ["Four"] = {"4", "$"}, ["Five"] = {"5", "%"}, ["Six"] = {"6", "^"}, ["Seven"] = {"7", "&"}, ["Eight"] = {"8", "*"}, ["Nine"] = {"9", "("}, ["Zero"] = {"0", ")"}, ["Space"] = " ", ["Slash"] = {"/", "?"}, ["BackSlash"] = {"\\", "|"}, ["Minus"] = {"-", "_"}, ["Equals"] = {"=", "+"}, ["RightBracket"] = {"]", "}"}, ["LeftBracket"] = {"[", "{"}, ["Semicolon"] = {";", ":"}, ["Quote"] = {"'", "@"}, ["Comma"] = {",", "<"}, ["Period"] = {".", ">"}},
         Letters = {"Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "A", "S", "D", "F", "G", "H", "J", "K", "L", "Z", "X", "C", "V", "B", "N", "M"},
-        KeyCodes = {"Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "A", "S", "D", "F", "G", "H", "J", "K", "L", "Z", "X", "C", "V", "B", "N", "M", "One", "Two", "Three", "Four", "Five", "Six", "Seveen", "Eight", "Nine", "Zero", "Insert", "Tab", "Home", "End", "LeftAlt", "LeftControl", "LeftShift", "RightAlt", "RightControl", "RightShift", "CapsLock"},
-        Inputs = {"MouseButton1", "MouseButton2", "MouseButton3"},
-        Shortened = {["MouseButton1"] = "M1", ["MouseButton2"] = "M2", ["MouseButton3"] = "M3", ["Insert"] = "INS", ["LeftAlt"] = "LA", ["LeftControl"] = "LC", ["LeftShift"] = "LS", ["RightAlt"] = "RA", ["RightControl"] = "RC", ["RightShift"] = "RS", ["CapsLock"] = "CL"}
+        KeyCodes = {"Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "A", "S", "D", "F", "G", "H", "J", "K", "L", "Z", "X", "C", "V", "B", "N", "M", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Zero", "Insert", "Tab", "Home", "End", "LeftAlt", "LeftControl", "LeftShift", "RightAlt", "RightControl", "RightShift", "CapsLock"},
+        Inputs = {"MouseButton1", "MouseButton2", "MouseButton3", "MouseButton4", "MouseButton5"},
+        Shortened = {["MouseButton1"] = "M1", ["MouseButton2"] = "M2", ["MouseButton3"] = "M3", ["MouseButton4"] = "M4", ["MouseButton5"] = "M5", ["Insert"] = "INS", ["LeftAlt"] = "LA", ["LeftControl"] = "LC", ["LeftShift"] = "LS", ["RightAlt"] = "RA", ["RightControl"] = "RC", ["RightShift"] = "RS", ["CapsLock"] = "CL"}
     },
     Input = {
         Caplock = false,
@@ -344,176 +344,213 @@ end
 do
     function Library.CreateLoader(Title, WindowSize)
         local Window = {
-            Max = 2, Current = 0
+            Max = 100,
+            Current = 0,
+            Progress = 0,
+            Stages = {},
+            StageIndex = 0,
+            Destroyed = false
         }
-        --
-        Library.Theme.Logo = Utility.AddImage("Abyss/Assets/UI/Logo2.png", "https://i.imgur.com/HI4UTmZ.png")
-        --
-        local WindowOutline = Utility.AddDrawing("Square", {
+
+        Library.Theme.Logo = Library.Theme.Logo or Utility.AddImage(
+            "Abyss/Assets/UI/Logo2.png",
+            "https://i.imgur.com/HI4UTmZ.png"
+        )
+
+        local function AddDrawing(Type, Properties)
+            return Utility.AddDrawing(Type, Properties)
+        end
+
+        local WindowOutline = AddDrawing("Square", {
             Size = WindowSize,
+            Position = Utility.MiddlePos({Size = WindowSize}),
             Thickness = 0,
             Color = Library.Theme.Outline,
             Visible = true,
             Filled = true
         })
-        --
-        WindowOutline.Position = Utility.MiddlePos(WindowOutline)
-        --
-        local WindowOutlineBorder = Utility.AddDrawing("Square", {
-            Size = Vector2.new(WindowOutline.Size.X - 2, WindowOutline.Size.Y - 2),
-            Position = Vector2.new(WindowOutline.Position.X + 1, WindowOutline.Position.Y + 1),
+        local WindowBorder = AddDrawing("Square", {
+            Size = WindowSize - Vector2.new(2, 2),
+            Position = WindowOutline.Position + Vector2.new(1, 1),
             Thickness = 0,
             Color = Library.Theme.Accent[1],
             Visible = true,
             Filled = true
         })
-        --
-        local WindowFrame = Utility.AddDrawing("Square", {
-            Size = Vector2.new(WindowOutlineBorder.Size.X - 2, WindowOutlineBorder.Size.Y - 2),
-            Position = Vector2.new(WindowOutlineBorder.Position.X + 1, WindowOutlineBorder.Position.Y + 1),
+        local WindowFrame = AddDrawing("Square", {
+            Size = WindowBorder.Size - Vector2.new(2, 2),
+            Position = WindowBorder.Position + Vector2.new(1, 1),
             Thickness = 0,
-            Transparency = 1,
             Color = Library.Theme.DarkContrast,
             Visible = true,
             Filled = true
         })
-        --
-        local WindowTopline = Utility.AddDrawing("Square", {
-            Size = Vector2.new(WindowOutline.Size.X - 2, 2),
-            Position = Vector2.new(WindowOutlineBorder.Position.X, WindowOutlineBorder.Position.Y),
-            Thickness = 0,
-            Color = Library.Theme.Accent[1],
-            Visible = false,
-            Filled = true
-        })
-        --
-        local WindowImage = Utility.AddDrawing("Image", {
+        local WindowImage = AddDrawing("Image", {
             Size = WindowFrame.Size,
             Position = WindowFrame.Position,
-            Transparency = 1, 
-            Visible = true,
+            Transparency = 1,
+            Visible = Library.Theme.Gradient ~= nil,
             Data = Library.Theme.Gradient
         })
-        --
-        local WindowTitle = Utility.AddDrawing("Text", {
+        local WindowTitle = AddDrawing("Text", {
             Font = Library.Theme.Font,
             Size = Library.Theme.TextSize,
             Color = Library.Theme.Text,
-            Text = Title,
-            Position = Vector2.new(WindowFrame.Position.X + (WindowFrame.Size.X / 2), WindowOutlineBorder.Position.Y + 8),
+            Text = tostring(Title or "Loading"),
+            Position = Vector2.new(WindowFrame.Position.X + WindowFrame.Size.X / 2, WindowFrame.Position.Y + 12),
             Visible = true,
             Center = true,
             Outline = false
         })
-        --
-        local WindowText = Utility.AddDrawing("Text", {
+        local MiddleIcon = AddDrawing("Image", {
+            Size = Vector2.new(150, 150),
+            Position = Vector2.new(WindowOutline.Position.X + WindowSize.X / 2 - 75, WindowOutline.Position.Y + WindowSize.Y / 2 - 85),
+            Rounding = 5,
+            Transparency = 1,
+            Visible = Library.Theme.Logo ~= nil,
+            Data = Library.Theme.Logo
+        })
+        local WindowText = AddDrawing("Text", {
             Font = Library.Theme.Font,
             Size = Library.Theme.TextSize,
             Color = Library.Theme.Text,
+            Text = "Initializing...",
+            Position = Vector2.new(WindowFrame.Position.X + WindowFrame.Size.X / 2, WindowOutline.Position.Y + WindowSize.Y - 58),
             Visible = true,
             Center = true,
             Outline = false
         })
-        --
-        local SliderInline = Utility.AddDrawing("Square", {
-            Size = Vector2.new(205, 15),
+        local SliderInline = AddDrawing("Square", {
+            Size = Vector2.new(math.min(205, WindowSize.X - 50), 15),
+            Position = Vector2.new(WindowOutline.Position.X + WindowSize.X / 2 - math.min(205, WindowSize.X - 50) / 2, WindowOutline.Position.Y + WindowSize.Y - 35),
             Color = Library.Theme.Inline,
-            Position = Vector2.new(WindowFrame.Position.X + (WindowFrame.Size.X / 2), WindowOutlineBorder.Position.Y + 8),
             Transparency = 0.75,
             Thickness = 0,
             Visible = true,
             Filled = true
         })
-        --
-        local SliderOutline = Utility.AddDrawing("Square", {
-            Size = Vector2.new(SliderInline.Size.X - 2, SliderInline.Size.Y - 2),
+        local SliderOutline = AddDrawing("Square", {
+            Size = SliderInline.Size - Vector2.new(2, 2),
+            Position = SliderInline.Position + Vector2.new(1, 1),
             Color = Library.Theme.Outline,
             Transparency = 0.5,
             Thickness = 0,
             Visible = true,
             Filled = true
         })
-        --
-        local SliderFrame = Utility.AddDrawing("Square", {
-            Size = Vector2.new(((SliderInline.Size.X - 2) / (Window.Max / math.clamp(Window.Current, 0, Window.Max))), SliderInline.Size.Y - 2),
+        local SliderFrame = AddDrawing("Square", {
+            Size = Vector2.new(0, SliderInline.Size.Y - 2),
+            Position = SliderInline.Position + Vector2.new(1, 1),
             Color = Library.Theme.Accent[1],
             Transparency = 0.75,
             Thickness = 0,
             Visible = true,
             Filled = true
         })
-        --
-        local SliderFrameShader = Utility.AddDrawing("Image", {
-            Size = Vector2.new(SliderInline.Size.X - 2, SliderInline.Size.Y - 2),
-            Transparency = 1, 
-            Visible = true,
+        local SliderFrameShader = AddDrawing("Image", {
+            Size = Vector2.new(0, SliderInline.Size.Y - 2),
+            Position = SliderInline.Position + Vector2.new(1, 1),
+            Transparency = 1,
+            Visible = Library.Theme.Gradient ~= nil,
             Data = Library.Theme.Gradient
         })
-        --
-        local MiddleIcon = Utility.AddDrawing("Image", {
-            Size = Vector2.new(175, 175),
-            Rounding = 5,
-            Transparency = 1, 
+        local PercentText = AddDrawing("Text", {
+            Font = Library.Theme.Font,
+            Size = Library.Theme.TextSize - 1,
+            Color = Library.Theme.TextInactive,
+            Text = "0%",
+            Position = Vector2.new(WindowFrame.Position.X + WindowFrame.Size.X / 2, WindowOutline.Position.Y + WindowSize.Y - 17),
             Visible = true,
-            Data = Library.Theme.Logo
+            Center = true,
+            Outline = false
         })
-        --
-        MiddleIcon.Position = Vector2.new(WindowOutline.Position.X + (WindowOutline.Size.X / 2) - (MiddleIcon.Size.X / 2), WindowOutline.Position.Y + (WindowOutline.Size.Y / 2) - (MiddleIcon.Size.Y / 2) - 15)
-        --
-        Window.SetText = function(Val, Txt)
-            SliderFrame.Size = Vector2.new(((SliderInline.Size.X - 2) / (Window.Max / math.clamp(Val, 0, Window.Max))), SliderInline.Size.Y - 2)
-            WindowText.Text = Txt
+
+        local function Update()
+            if Window.Destroyed then return end
+            Window.Progress = math.clamp(tonumber(Window.Progress) or 0, 0, 100)
+            local Width = math.max(0, SliderInline.Size.X - 2)
+            local FillWidth = Width * Window.Progress / 100
+            SliderFrame.Size = Vector2.new(FillWidth, SliderInline.Size.Y - 2)
+            SliderFrameShader.Size = SliderFrame.Size
+            PercentText.Text = tostring(math.floor(Window.Progress + 0.5)) .. "%"
         end
-        --
-        SliderInline.Position = Vector2.new(WindowOutline.Position.X + (WindowOutline.Size.X / 2) - (SliderOutline.Size.X / 2), (WindowOutline.Position.Y + WindowOutline.Size.Y) - 30)
-        SliderOutline.Position = Vector2.new(SliderInline.Position.X + 1, SliderInline.Position.Y + 1)
-        SliderFrame.Position = Vector2.new(SliderInline.Position.X + 1, SliderInline.Position.Y + 1)
-        SliderFrameShader.Position = Vector2.new(SliderInline.Position.X + 1, SliderInline.Position.Y + 1)
-        WindowText.Position = Vector2.new(WindowFrame.Position.X + (WindowFrame.Size.X / 2), SliderInline.Position.Y - 16)
-        --
-        Window.SetText(0, "UI Initialization [ Downloading ]")
-        --
-        Utility.AddFolder("Abyss")
-        Utility.AddFolder("Abyss/Caches")
-        Utility.AddFolder("Abyss/Assets")
-        Utility.AddFolder("Abyss/Assets/UI")
-        Utility.AddFolder("Abyss/Configs")
-        Utility.AddFolder("Abyss/Scripts")
-        --
-        Library.Theme.Gradient = Utility.AddImage("Abyss/Assets/UI/Gradient.png", "https://raw.githubusercontent.com/mvonwalk/Exterium/main/Gradient.png")
-        -- Library.Theme.SecondIcon = Utility.AddImage("Abyss/Assets/UI/Gradient.png", "https://raw.githubusercontent.com/mvonwalk/Exterium/main/Gradient.png")
-        Library.Theme.Hue = Utility.AddImage("Abyss/Assets/UI/Hue.png", "https://raw.githubusercontent.com/mvonwalk/Exterium/main/HuePicker.png")
-        Library.Theme.Saturation = Utility.AddImage("Abyss/Assets/UI/Saturation.png", "https://raw.githubusercontent.com/mvonwalk/Exterium/main/SaturationPicker.png")
-        Library.Theme.SaturationCursor = Utility.AddImage("Abyss/Assets/UI/HueCursor.png", "https://raw.githubusercontent.com/mvonwalk/splix-assets/main/Images-cursor.png")
-        --
-        Library.Theme.Astolfo = Utility.AddImage("Abyss/Assets/UI/Astolfo.png", "https://i.imgur.com/T20cWY9.png")
-        Library.Theme.Aiko = Utility.AddImage("Abyss/Assets/UI/Aiko.png", "https://i.imgur.com/1gRIdko.png")
-        Library.Theme.Rem = Utility.AddImage("Abyss/Assets/UI/Rem.png", "https://i.imgur.com/ykbRkhJ.png")
-        Library.Theme.Violet = Utility.AddImage("Abyss/Assets/UI/Violet.png", "https://i.imgur.com/7B56w4a.png")
-        Library.Theme.Asuka = Utility.AddImage("Abyss/Assets/UI/Asuka.png", "https://i.imgur.com/3hwztNM.png")
-        --
-        Window.SetText(1, "Checking Assets")
-        --
-        Window.SetText(1, "Checking Input")
-        Utility.CLCheck(Window)
-        --
-        Window.SetText(2, "Finished")
-        --
-        Utility.RemoveDrawing(WindowOutline)
-        Utility.RemoveDrawing(WindowOutlineBorder)
-        Utility.RemoveDrawing(WindowTopline)
-        Utility.RemoveDrawing(WindowFrame)
-        Utility.RemoveDrawing(WindowTitle)
-        Utility.RemoveDrawing(WindowText)
-        Utility.RemoveDrawing(SliderOutline)
-        Utility.RemoveDrawing(SliderInline)
-        Utility.RemoveDrawing(SliderFrame)
-        Utility.RemoveDrawing(SliderFrameShader)
-        Utility.RemoveDrawing(MiddleIcon)
-        Utility.RemoveDrawing(WindowImage)
-        --
-        UserInput.MouseIconEnabled = false
-        --
+
+        function Window:SetProgress(Value)
+            if self.Destroyed then return self end
+            self.Progress = math.clamp(tonumber(Value) or 0, 0, 100)
+            self.Current = self.Progress
+            Update()
+            return self
+        end
+
+        function Window:SetText(Text)
+            if self.Destroyed then return self end
+            WindowText.Text = tostring(Text or "")
+            return self
+        end
+
+        function Window:AddStage(Name, Weight)
+            if self.Destroyed then return nil end
+            table.insert(self.Stages, {
+                Name = tostring(Name or ("Stage " .. (#self.Stages + 1))),
+                Weight = math.max(tonumber(Weight) or 1, 0),
+                Completed = false
+            })
+            return #self.Stages
+        end
+
+        function Window:SetStage(Index)
+            if self.Destroyed then return self end
+            Index = math.floor(tonumber(Index) or 0)
+            local Stage = self.Stages[Index]
+            if not Stage then return self end
+            self.StageIndex = Index
+            for i, Item in ipairs(self.Stages) do
+                Item.Completed = i <= Index
+            end
+            local TotalWeight, DoneWeight = 0, 0
+            for i, Item in ipairs(self.Stages) do
+                TotalWeight = TotalWeight + Item.Weight
+                if i <= Index then DoneWeight = DoneWeight + Item.Weight end
+            end
+            self:SetText(Stage.Name)
+            self:SetProgress(TotalWeight > 0 and DoneWeight / TotalWeight * 100 or Index / #self.Stages * 100)
+            return self
+        end
+
+        function Window:NextStage()
+            if self.Destroyed then return self end
+            if self.StageIndex >= #self.Stages then return self end
+            return self:SetStage(self.StageIndex + 1)
+        end
+
+        function Window:Reset()
+            if self.Destroyed then return self end
+            self.StageIndex = 0
+            for _, Stage in ipairs(self.Stages) do Stage.Completed = false end
+            self:SetText("Initializing...")
+            self:SetProgress(0)
+            return self
+        end
+
+        function Window:Finish(Text)
+            if self.Destroyed then return self end
+            self.StageIndex = #self.Stages
+            for _, Stage in ipairs(self.Stages) do Stage.Completed = true end
+            self:SetText(Text or "Finished!")
+            self:SetProgress(100)
+            return self
+        end
+
+        function Window:Destroy()
+            if self.Destroyed then return end
+            self.Destroyed = true
+            for _, Object in ipairs({WindowOutline, WindowBorder, WindowFrame, WindowImage, WindowTitle, MiddleIcon, WindowText, SliderInline, SliderOutline, SliderFrame, SliderFrameShader, PercentText}) do
+                Utility.RemoveDrawing(Object)
+            end
+        end
+
+        Update()
         return Window
     end
 end
@@ -1855,7 +1892,7 @@ do
                         local Keybind = {
                             Axis = Section.ContentAxis,
                             Title = Options.Title or "LOL",
-                            EnumType = Options.Key.EnumType == Enum.KeyCode and "KeyCode" or "UserInputType",
+                            EnumType = Options.Key and Options.Key.EnumType == Enum.KeyCode and "KeyCode" or "UserInputType",
                             Key = Options.Key or Enum.UserInputType.MouseButton2,
                             StateType = Options.StateType or "Hold",
                             State = false,
@@ -2120,6 +2157,17 @@ do
                                     Keybind:Drop(Keybind.Dropped)
                                     Tab.Dropdowns["Left"][ToggleTitle.Text] = Keybind.Dropped
                                     Tab.Dropdowns["Right"][ToggleTitle.Text] = Keybind.Dropped
+                                end
+                            elseif Input.UserInputType == Enum.UserInputType.MouseButton3 or Input.UserInputType == Enum.UserInputType.MouseButton4 or Input.UserInputType == Enum.UserInputType.MouseButton5 then
+                                if Keybind.Binding then
+                                    Keybind.Binding = false
+                                    Keybind.Key = Input.UserInputType
+                                    Keybind.EnumType = "UserInputType"
+                                    local Old = Keybind.Shorten
+                                    Keybind.Shorten = Library.Keys.Shortened[Keybind.Key.Name] or Keybind.Key.Name
+                                    KeybindValue.Text = Keybind.Shorten
+                                    Window.BindList = string.gsub(Window.BindList, "\n%[" .. Old .. "%] " .. Options.Title, ("\n[%s] %s"):format(Keybind.Shorten, Options.Title))
+                                    Keybind.ShowRender = ("[%s] %s"):format(Keybind.Shorten, Options.Title)
                                 end
                             elseif Input.UserInputType == Enum.UserInputType.Keyboard then
                                 if Keybind.Binding then
@@ -3366,7 +3414,7 @@ do
                     local Keybind = {
                         Axis = Section.ContentAxis,
                         Title = Options.Title and Options.Title or "LOL",
-                        EnumType = Options.Key.EnumType == Enum.KeyCode and "KeyCode" or "UserInputType",
+                        EnumType = Options.Key and Options.Key.EnumType == Enum.KeyCode and "KeyCode" or "UserInputType",
                         Key = Options.Key or Enum.UserInputType.MouseButton2,
                         StateType = Options.StateType or "Hold",
                         State = false,
