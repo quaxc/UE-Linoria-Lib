@@ -24,7 +24,7 @@ local Background = {
             Image = "https://raw.githubusercontent.com/quaxc/konata_fun/main/resources/background/Astolfo.png",
         },
         {
-            Name = "rat",
+            Name = "кидаем крысу соседу снизу",
             Image = "https://raw.githubusercontent.com/quaxc/konata_fun/main/resources/background/njrat.png",
         },
     }
