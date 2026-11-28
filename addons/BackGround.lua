@@ -13,6 +13,10 @@ local Background = {
 
     Presets = {
         {
+            Name = "Russia",
+            Image = "https://raw.githubusercontent.com/quaxc/konata_fun/main/resources/background/russia.png",
+        },
+        {
             Name = "Konata Izumi",
             Image = "https://raw.githubusercontent.com/quaxc/konata_fun/main/resources/background/konataizumi.png",
         },
@@ -25,7 +29,7 @@ local Background = {
             Image = "https://raw.githubusercontent.com/quaxc/konata_fun/main/resources/background/Astolfo.png",
         },
         {
-            Name = "rat",
+            Name = "кидаем крысу соседу снизу",
             Image = "https://raw.githubusercontent.com/quaxc/konata_fun/main/resources/background/njrat.png",
         },
     },
