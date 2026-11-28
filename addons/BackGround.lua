@@ -9,6 +9,7 @@ local Background = {
     Window = nil,
     GameController = nil,
     MenuController = nil,
+    VisibilityConnection = nil,
 
     Presets = {
         {
@@ -24,7 +25,7 @@ local Background = {
             Image = "https://raw.githubusercontent.com/quaxc/konata_fun/main/resources/background/Astolfo.png",
         },
         {
-            Name = "кидаем крысу соседу снизу",
+            Name = "rat",
             Image = "https://raw.githubusercontent.com/quaxc/konata_fun/main/resources/background/njrat.png",
         },
     },
@@ -116,6 +117,17 @@ local function makeController(image, overlay, state, setImageFn, panelObjects, i
         Overlay = overlay,
     }
 
+    local function refreshVisibility()
+        local visible = state.Enabled == true and state.MenuOpen ~= false
+        if image then image.Visible = visible end
+        if overlay then overlay.Visible = visible end
+    end
+
+    function controller:SetMenuOpen(open)
+        state.MenuOpen = open == true
+        refreshVisibility()
+    end
+
     function controller:SetImage(url)
         assert(type(url) == "string", "SetImage expects a URL string")
         state.Image = url
@@ -151,8 +163,7 @@ local function makeController(image, overlay, state, setImageFn, panelObjects, i
 
     function controller:SetEnabled(value)
         state.Enabled = value == true
-        image.Visible = state.Enabled
-        if overlay then overlay.Visible = state.Enabled end
+        refreshVisibility()
     end
 
     function controller:Destroy()
@@ -184,12 +195,17 @@ function Background:AttachGameBackground(config)
         self.GameController:Destroy()
         self.GameController = nil
     end
+    if self.VisibilityConnection then
+        self.VisibilityConnection:Disconnect()
+        self.VisibilityConnection = nil
+    end
 
     local state = {
         Image = config.Image or self.Presets[1].Image,
         Transparency = clamp01(config.Transparency, 0.15),
         OverlayTransparency = clamp01(config.OverlayTransparency, 1),
         Enabled = config.Enabled ~= false,
+        MenuOpen = self.Library.Toggled == true,
         ScaleType = config.ScaleType or "Crop",
     }
 
@@ -218,6 +234,27 @@ function Background:AttachGameBackground(config)
     end
 
     self.GameController = makeController(image, overlay, state, setImage)
+    self.GameController:SetMenuOpen(self.Library.Toggled == true)
+
+    -- The fullscreen game wallpaper must only be visible while the Linoria
+    -- window is open. Library.Toggle() updates Library.Toggled.
+    if self.VisibilityConnection then
+        self.VisibilityConnection:Disconnect()
+        self.VisibilityConnection = nil
+    end
+
+    local RunService = game:GetService("RunService")
+    self.VisibilityConnection = RunService.RenderStepped:Connect(function()
+        if not self.Library or not self.GameController then
+            return
+        end
+
+        local isOpen = self.Library.Toggled == true
+        if self.GameController.State.MenuOpen ~= isOpen then
+            self.GameController:SetMenuOpen(isOpen)
+        end
+    end)
+
     return self.GameController
 end
 
@@ -347,9 +384,12 @@ function Background:ApplyToTab(tab)
     assert(tab, "[BackGround] Settings tab is missing")
     assert(self.MenuController, "[BackGround] Call Attach(Window, config) first")
 
+    -- Auto-balanced two-column Settings layout:
+    -- left: Menu background + Blur; right: Game background.
+    -- Linoria's Groupbox Resize() automatically stacks and resizes each column.
     local menuBox = tab:AddLeftGroupbox("Menu background")
     local gameBox = tab:AddRightGroupbox("Game background")
-    local blurBox = tab:AddRightGroupbox("Blur")
+    local blurBox = tab:AddLeftGroupbox("Blur")
 
     local menu = self.MenuController
     local game = self.GameController
