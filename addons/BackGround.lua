@@ -1,14 +1,14 @@
 -- BackGround.lua
--- Linoria background manager with Settings controls.
--- Load this module, then call:
--- Background:SetLibrary(Library)
--- local bg = Background:Attach(Window, {...})
--- Background:ApplyToTab(Tabs.Settings)
+-- Two independent image layers:
+-- 1) GameBackground: fullscreen image behind the Linoria window, over the game view.
+-- 2) MenuBackground: image inside the Linoria window, behind its controls.
+-- Also includes a Blur toggle using the Library.BlurEffect already defined in Library.lua.
 
 local Background = {
     Library = nil,
-    Controller = nil,
-    Folder = "LinoriaBackgrounds",
+    Window = nil,
+    GameController = nil,
+    MenuController = nil,
 
     Presets = {
         {
@@ -27,7 +27,7 @@ local Background = {
             Name = "кидаем крысу соседу снизу",
             Image = "https://raw.githubusercontent.com/quaxc/konata_fun/main/resources/background/njrat.png",
         },
-    }
+    },
 }
 
 local function clamp01(value, fallback)
@@ -36,99 +36,231 @@ local function clamp01(value, fallback)
     return math.clamp(value, 0, 1)
 end
 
-local function safeFileName(url)
-    local name = url:match("/([^/?#]+)$") or "background.png"
-    return name:gsub("[^%w_.-]", "_")
+local function scaleType(name)
+    local types = {
+        Crop = Enum.ScaleType.Crop,
+        Fit = Enum.ScaleType.Fit,
+        Stretch = Enum.ScaleType.Stretch,
+        Tile = Enum.ScaleType.Tile,
+    }
+    return types[name] or Enum.ScaleType.Crop
 end
 
-local function loadImageAsset(url)
-    assert(type(url) == "string" and url ~= "", "[BackGround] Empty image URL")
+local function assetFromUrl(url)
+    assert(type(url) == "string" and url ~= "", "[BackGround] Invalid image URL")
 
-    local assetFunction = getcustomasset or getsynasset
-    if not (assetFunction and writefile and isfile) then
-        warn("[BackGround] Executor needs getcustomasset/getsynasset + writefile + isfile to load GitHub images.")
+    local getAsset = getcustomasset or getsynasset
+    if not (getAsset and writefile and isfile) then
+        warn("[BackGround] This executor needs getcustomasset/getsynasset, writefile and isfile for GitHub images.")
         return nil
     end
 
-    local fileName = "LinoriaBackgrounds/" .. safeFileName(url)
+    local filename = url:match("/([^/?#]+)$") or "background.png"
+    filename = filename:gsub("[^%w_.-]", "_")
+    local folder = "UE_Linoria_Backgrounds"
+    local path = folder .. "/" .. filename
 
     local ok, result = pcall(function()
-        if makefolder and isfolder and not isfolder("LinoriaBackgrounds") then
-            makefolder("LinoriaBackgrounds")
+        if makefolder and isfolder and not isfolder(folder) then
+            makefolder(folder)
         end
 
-        if not isfile(fileName) then
+        if not isfile(path) then
             local response = game:HttpGet(url)
-            assert(type(response) == "string" and #response > 100, "GitHub returned an empty/invalid response")
-            writefile(fileName, response)
+            assert(type(response) == "string" and #response > 100, "GitHub image response was empty")
+            writefile(path, response)
         end
 
-        return assetFunction(fileName)
+        return getAsset(path)
     end)
 
     if not ok then
-        warn("[BackGround] Failed to load " .. url .. " : " .. tostring(result))
+        warn("[BackGround] Image download failed: " .. tostring(result))
         return nil
     end
 
     return result
 end
 
-function Background:SetLibrary(library)
-    self.Library = library
-end
-
-function Background:Attach(window, config)
-    config = config or {}
-
-    assert(self.Library, "[BackGround] Call Background:SetLibrary(Library) first")
-    assert(window and window.Holder, "[BackGround] Invalid Window")
-
-    local inner = window.Holder:FindFirstChild("Inner")
-    assert(inner, "[BackGround] Window.Holder.Inner was not found")
-
-    if self.Controller then
-        self.Controller:Destroy()
-    end
-
-    local scaleTypes = {
-        Crop = Enum.ScaleType.Crop,
-        Fit = Enum.ScaleType.Fit,
-        Stretch = Enum.ScaleType.Stretch,
-        Tile = Enum.ScaleType.Tile,
-    }
-
-    local state = {
-        Image = config.Image or self.Presets[1].Image,
-        Transparency = clamp01(config.Transparency, 0.1),
-        OverlayTransparency = clamp01(config.OverlayTransparency, 0.45),
-        PanelTransparency = clamp01(config.PanelTransparency, 0.25),
-        Enabled = config.Enabled ~= false,
-        ScaleType = config.ScaleType or "Crop",
-    }
-
-    assert(scaleTypes[state.ScaleType], "[BackGround] Invalid ScaleType")
-
-    local oldInnerTransparency = inner.BackgroundTransparency
-    local oldPanelTransparency = {}
-
-    inner.ClipsDescendants = true
-    inner.BackgroundTransparency = 1
-
+local function newImageLayer(parent, name, zIndex, url, transparency, enabled, scale)
     local image = Instance.new("ImageLabel")
-    image.Name = "LinoriaBackgroundImage"
+    image.Name = name
     image.BackgroundTransparency = 1
     image.BorderSizePixel = 0
     image.Position = UDim2.fromScale(0, 0)
     image.Size = UDim2.fromScale(1, 1)
-    image.ScaleType = scaleTypes[state.ScaleType]
-    image.ImageTransparency = state.Transparency
-    image.ZIndex = 0
-    image.Visible = state.Enabled
-    image.Parent = inner
+    image.ZIndex = zIndex
+    image.ScaleType = scaleType(scale)
+    image.ImageTransparency = transparency
+    image.Visible = enabled
+    image.Parent = parent
+
+    local function setImage(imageUrl)
+        local asset = assetFromUrl(imageUrl)
+        if not asset then
+            image.Image = ""
+            return false
+        end
+        image.Image = asset
+        return true
+    end
+
+    setImage(url)
+    return image, setImage
+end
+
+local function makeController(image, overlay, state, setImageFn, panelObjects, inner, oldInnerTransparency)
+    local controller = {
+        State = state,
+        ImageLabel = image,
+        Overlay = overlay,
+    }
+
+    function controller:SetImage(url)
+        assert(type(url) == "string", "SetImage expects a URL string")
+        state.Image = url
+        return setImageFn(url)
+    end
+
+    function controller:SetTransparency(value)
+        state.Transparency = clamp01(value, state.Transparency)
+        image.ImageTransparency = state.Transparency
+    end
+
+    function controller:SetOverlayTransparency(value)
+        state.OverlayTransparency = clamp01(value, state.OverlayTransparency)
+        if overlay then
+            overlay.BackgroundTransparency = state.OverlayTransparency
+        end
+    end
+
+    function controller:SetPanelTransparency(value)
+        state.PanelTransparency = clamp01(value, state.PanelTransparency)
+        for panel in pairs(panelObjects or {}) do
+            if panel and panel.Parent then
+                panel.BackgroundTransparency = state.PanelTransparency
+            end
+        end
+    end
+
+    function controller:SetScaleType(value)
+        assert(value == "Crop" or value == "Fit" or value == "Stretch" or value == "Tile", "Invalid scale type")
+        state.ScaleType = value
+        image.ScaleType = scaleType(value)
+    end
+
+    function controller:SetEnabled(value)
+        state.Enabled = value == true
+        image.Visible = state.Enabled
+        if overlay then overlay.Visible = state.Enabled end
+    end
+
+    function controller:Destroy()
+        if image then image:Destroy() end
+        if overlay then overlay:Destroy() end
+        if inner and inner.Parent and oldInnerTransparency ~= nil then
+            inner.BackgroundTransparency = oldInnerTransparency
+        end
+        for panel, oldTransparency in pairs(panelObjects or {}) do
+            if panel and panel.Parent then
+                panel.BackgroundTransparency = oldTransparency
+            end
+        end
+    end
+
+    return controller
+end
+
+function Background:SetLibrary(library)
+    self.Library = library
+end
+
+-- Create the fullscreen image behind the menu (ZIndex 0, menu window is ZIndex 1).
+function Background:AttachGameBackground(config)
+    assert(self.Library and self.Library.ScreenGui, "[BackGround] Call SetLibrary(Library) first")
+    config = config or {}
+
+    if self.GameController then
+        self.GameController:Destroy()
+        self.GameController = nil
+    end
+
+    local state = {
+        Image = config.Image or self.Presets[1].Image,
+        Transparency = clamp01(config.Transparency, 0.15),
+        OverlayTransparency = clamp01(config.OverlayTransparency, 1),
+        Enabled = config.Enabled ~= false,
+        ScaleType = config.ScaleType or "Crop",
+    }
+
+    local image, setImage = newImageLayer(
+        self.Library.ScreenGui,
+        "LinoriaGameBackground",
+        0,
+        state.Image,
+        state.Transparency,
+        state.Enabled,
+        state.ScaleType
+    )
+
+    local overlay
+    if config.UseOverlay then
+        overlay = Instance.new("Frame")
+        overlay.Name = "LinoriaGameBackgroundOverlay"
+        overlay.BackgroundColor3 = Color3.new(0, 0, 0)
+        overlay.BackgroundTransparency = state.OverlayTransparency
+        overlay.BorderSizePixel = 0
+        overlay.Size = UDim2.fromScale(1, 1)
+        overlay.Position = UDim2.fromScale(0, 0)
+        overlay.ZIndex = 0
+        overlay.Visible = state.Enabled
+        overlay.Parent = self.Library.ScreenGui
+    end
+
+    self.GameController = makeController(image, overlay, state, setImage)
+    return self.GameController
+end
+
+-- Create the image inside the Linoria window, behind its controls.
+function Background:AttachMenuBackground(window, config)
+    assert(self.Library, "[BackGround] Call SetLibrary(Library) first")
+    assert(window and window.Holder, "[BackGround] Pass the Window returned by Library:CreateWindow()")
+    config = config or {}
+
+    if self.MenuController then
+        self.MenuController:Destroy()
+        self.MenuController = nil
+    end
+
+    local inner = window.Holder:FindFirstChild("Inner")
+    assert(inner, "[BackGround] Window.Holder.Inner was not found")
+
+    local state = {
+        Image = config.Image or self.Presets[1].Image,
+        Transparency = clamp01(config.Transparency, 0.12),
+        OverlayTransparency = clamp01(config.OverlayTransparency, 0.45),
+        PanelTransparency = clamp01(config.PanelTransparency, 0.2),
+        Enabled = config.Enabled ~= false,
+        ScaleType = config.ScaleType or "Crop",
+    }
+
+    local oldInnerTransparency = inner.BackgroundTransparency
+    inner.ClipsDescendants = true
+    inner.BackgroundTransparency = 1
+
+    -- The window's controls use ZIndex 1+, so ZIndex 0 stays behind them.
+    local image, setImage = newImageLayer(
+        inner,
+        "LinoriaMenuBackground",
+        0,
+        state.Image,
+        state.Transparency,
+        state.Enabled,
+        state.ScaleType
+    )
 
     local overlay = Instance.new("Frame")
-    overlay.Name = "LinoriaBackgroundOverlay"
+    overlay.Name = "LinoriaMenuBackgroundOverlay"
     overlay.BackgroundColor3 = Color3.new(0, 0, 0)
     overlay.BackgroundTransparency = state.OverlayTransparency
     overlay.BorderSizePixel = 0
@@ -138,24 +270,7 @@ function Background:Attach(window, config)
     overlay.Visible = state.Enabled
     overlay.Parent = inner
 
-    -- Apply first image after the ImageLabel exists.
-    local function setImage(url)
-        state.Image = url
-        local asset = loadImageAsset(url)
-        if asset then
-            image.Image = asset
-            image.Visible = state.Enabled
-            return true
-        end
-
-        image.Image = ""
-        warn("[BackGround] Image was not changed. Check executor asset functions and URL.")
-        return false
-    end
-
-    setImage(state.Image)
-
-    -- Keep the major Linoria panels translucent so the background is visible.
+    local panelObjects = {}
     local panelNames = {
         "TabBarOuter",
         "TabBarInner",
@@ -167,168 +282,191 @@ function Background:Attach(window, config)
     for _, name in ipairs(panelNames) do
         local panel = inner:FindFirstChild(name, true)
         if panel and panel:IsA("GuiObject") then
-            oldPanelTransparency[panel] = panel.BackgroundTransparency
+            panelObjects[panel] = panel.BackgroundTransparency
             panel.BackgroundTransparency = state.PanelTransparency
         end
     end
 
-    local controller = {
-        State = state,
-        ImageLabel = image,
-        Overlay = overlay,
-    }
-
-    function controller:SetImage(url)
-        assert(type(url) == "string", "SetImage expects a URL string")
-        return setImage(url)
-    end
-
-    function controller:SetTransparency(value)
-        state.Transparency = clamp01(value, state.Transparency)
-        image.ImageTransparency = state.Transparency
-    end
-
-    function controller:SetOverlayTransparency(value)
-        state.OverlayTransparency = clamp01(value, state.OverlayTransparency)
-        overlay.BackgroundTransparency = state.OverlayTransparency
-    end
-
-    function controller:SetPanelTransparency(value)
-        state.PanelTransparency = clamp01(value, state.PanelTransparency)
-        for panel in pairs(oldPanelTransparency) do
-            if panel and panel.Parent then
-                panel.BackgroundTransparency = state.PanelTransparency
-            end
-        end
-    end
-
-    function controller:SetScaleType(value)
-        assert(scaleTypes[value], "ScaleType must be Crop, Fit, Stretch, or Tile")
-        state.ScaleType = value
-        image.ScaleType = scaleTypes[value]
-    end
-
-    function controller:SetEnabled(value)
-        state.Enabled = value == true
-        image.Visible = state.Enabled
-        overlay.Visible = state.Enabled
-    end
-
-    function controller:Destroy()
-        if image then image:Destroy() end
-        if overlay then overlay:Destroy() end
-
-        if inner and inner.Parent then
-            inner.BackgroundTransparency = oldInnerTransparency
-        end
-
-        for panel, transparency in pairs(oldPanelTransparency) do
-            if panel and panel.Parent then
-                panel.BackgroundTransparency = transparency
-            end
-        end
-    end
-
-    self.Controller = controller
-    return controller
+    self.MenuController = makeController(
+        image, overlay, state, setImage, panelObjects, inner, oldInnerTransparency
+    )
+    self.Window = window
+    return self.MenuController
 end
 
-function Background:CreateGroupBox(tab)
-    assert(self.Library, "[BackGround] Call SetLibrary first")
-    return tab:AddLeftGroupbox("Background")
+-- Backwards-compatible alias: Attach means attach the menu background.
+function Background:Attach(window, config)
+    return self:AttachMenuBackground(window, config)
 end
 
-function Background:CreateBackgroundManager(groupbox)
-    assert(self.Library, "[BackGround] Call SetLibrary first")
-    assert(self.Controller, "[BackGround] Call Attach(Window, config) before creating Settings controls")
-    assert(groupbox, "[BackGround] Settings groupbox is missing")
+function Background:SetBlurEnabled(enabled)
+    assert(self.Library, "[BackGround] Call SetLibrary(Library) first")
+    local library = self.Library
+    library.UseBlur = enabled == true
 
-    local controller = self.Controller
+    if library.BlurEffect then
+        if library.UseBlur and library.Toggled then
+            library.BlurEffect.Enabled = true
+            library.BlurEffect.Size = library.BlurSize or 15
+        else
+            library.BlurEffect.Size = 0
+            library.BlurEffect.Enabled = false
+        end
+    elseif library.UpdateBlur then
+        library:UpdateBlur()
+    end
+end
+
+function Background:SetBlurSize(size)
+    assert(self.Library, "[BackGround] Call SetLibrary(Library) first")
+    self.Library.BlurSize = math.clamp(tonumber(size) or 15, 0, 56)
+    if self.Library.UseBlur and self.Library.Toggled and self.Library.BlurEffect then
+        self.Library.BlurEffect.Enabled = true
+        self.Library.BlurEffect.Size = self.Library.BlurSize
+    end
+end
+
+local function presetNames(self)
     local names = {}
-    local currentIndex = 1
+    for _, preset in ipairs(self.Presets) do
+        table.insert(names, preset.Name)
+    end
+    return names
+end
 
-    for index, preset in ipairs(self.Presets) do
-        names[index] = preset.Name
-        if preset.Image == controller.State.Image then
-            currentIndex = index
+local function findPreset(self, name)
+    for _, preset in ipairs(self.Presets) do
+        if preset.Name == name then
+            return preset
         end
     end
-
-    groupbox:AddToggle("Background_Enabled", {
-        Text = "Enable background",
-        Default = controller.State.Enabled,
-        Callback = function(value)
-            controller:SetEnabled(value)
-        end,
-    })
-
-    groupbox:AddDropdown("Background_Image", {
-        Text = "Background image",
-        Values = names,
-        Default = currentIndex,
-        Callback = function(value)
-            for _, preset in ipairs(self.Presets) do
-                if preset.Name == value then
-                    controller:SetImage(preset.Image)
-                    break
-                end
-            end
-        end,
-    })
-
-    groupbox:AddSlider("Background_Transparency", {
-        Text = "Image transparency",
-        Default = math.floor(controller.State.Transparency * 100 + 0.5),
-        Min = 0,
-        Max = 100,
-        Rounding = 0,
-        Suffix = "%",
-        Callback = function(value)
-            controller:SetTransparency(value / 100)
-        end,
-    })
-
-    groupbox:AddSlider("Background_Overlay", {
-        Text = "Dark overlay",
-        Default = math.floor(controller.State.OverlayTransparency * 100 + 0.5),
-        Min = 0,
-        Max = 100,
-        Rounding = 0,
-        Suffix = "%",
-        Callback = function(value)
-            controller:SetOverlayTransparency(value / 100)
-        end,
-    })
-
-    groupbox:AddSlider("Background_Panels", {
-        Text = "Panel transparency",
-        Default = math.floor(controller.State.PanelTransparency * 100 + 0.5),
-        Min = 0,
-        Max = 100,
-        Rounding = 0,
-        Suffix = "%",
-        Callback = function(value)
-            controller:SetPanelTransparency(value / 100)
-        end,
-    })
-
-    groupbox:AddDropdown("Background_ScaleType", {
-        Text = "Image scaling",
-        Values = { "Crop", "Fit", "Stretch", "Tile" },
-        Default = controller.State.ScaleType,
-        Callback = function(value)
-            controller:SetScaleType(value)
-        end,
-    })
 end
 
 function Background:ApplyToTab(tab)
-    local groupbox = self:CreateGroupBox(tab)
-    self:CreateBackgroundManager(groupbox)
-end
+    assert(self.Library, "[BackGround] Call SetLibrary(Library) first")
+    assert(tab, "[BackGround] Settings tab is missing")
+    assert(self.MenuController, "[BackGround] Call Attach(Window, config) first")
 
-function Background:ApplyToGroupbox(groupbox)
-    self:CreateBackgroundManager(groupbox)
+    local menuBox = tab:AddLeftGroupbox("Menu background")
+    local gameBox = tab:AddRightGroupbox("Game background")
+    local blurBox = tab:AddRightGroupbox("Blur")
+
+    local menu = self.MenuController
+    local game = self.GameController
+    local names = presetNames(self)
+    local menuDefault, gameDefault = 1, 1
+
+    for index, preset in ipairs(self.Presets) do
+        if preset.Image == menu.State.Image then menuDefault = index end
+        if game and preset.Image == game.State.Image then gameDefault = index end
+    end
+
+    menuBox:AddToggle("BG_MenuEnabled", {
+        Text = "Enable menu image",
+        Default = menu.State.Enabled,
+        Callback = function(value) menu:SetEnabled(value) end,
+    })
+
+    menuBox:AddDropdown("BG_MenuImage", {
+        Text = "Menu image",
+        Values = names,
+        Default = menuDefault,
+        Callback = function(value)
+            local preset = findPreset(self, value)
+            if preset then menu:SetImage(preset.Image) end
+        end,
+    })
+
+    menuBox:AddSlider("BG_MenuOpacity", {
+        Text = "Menu image opacity",
+        Default = math.floor((1 - menu.State.Transparency) * 100 + 0.5),
+        Min = 0, Max = 100, Rounding = 0, Suffix = "%",
+        Callback = function(value) menu:SetTransparency(1 - value / 100) end,
+    })
+
+    menuBox:AddSlider("BG_MenuOverlay", {
+        Text = "Menu dark overlay",
+        Default = math.floor((1 - menu.State.OverlayTransparency) * 100 + 0.5),
+        Min = 0, Max = 100, Rounding = 0, Suffix = "%",
+        Callback = function(value) menu:SetOverlayTransparency(1 - value / 100) end,
+    })
+
+    menuBox:AddSlider("BG_MenuPanels", {
+        Text = "Menu panels opacity",
+        Default = math.floor((1 - menu.State.PanelTransparency) * 100 + 0.5),
+        Min = 0, Max = 100, Rounding = 0, Suffix = "%",
+        Callback = function(value) menu:SetPanelTransparency(1 - value / 100) end,
+    })
+
+    menuBox:AddDropdown("BG_MenuScale", {
+        Text = "Menu image scaling",
+        Values = { "Crop", "Fit", "Stretch", "Tile" },
+        Default = menu.State.ScaleType,
+        Callback = function(value) menu:SetScaleType(value) end,
+    })
+
+    gameBox:AddToggle("BG_GameEnabled", {
+        Text = "Enable game background",
+        Default = game and game.State.Enabled or false,
+        Callback = function(value)
+            if game then game:SetEnabled(value) end
+        end,
+    })
+
+    gameBox:AddDropdown("BG_GameImage", {
+        Text = "Game background image",
+        Values = names,
+        Default = gameDefault,
+        Callback = function(value)
+            local preset = findPreset(self, value)
+            if preset and self.GameController then
+                self.GameController:SetImage(preset.Image)
+            end
+        end,
+    })
+
+    gameBox:AddSlider("BG_GameOpacity", {
+        Text = "Game image opacity",
+        Default = game and math.floor((1 - game.State.Transparency) * 100 + 0.5) or 85,
+        Min = 0, Max = 100, Rounding = 0, Suffix = "%",
+        Callback = function(value)
+            if self.GameController then
+                self.GameController:SetTransparency(1 - value / 100)
+            end
+        end,
+    })
+
+    gameBox:AddDropdown("BG_GameScale", {
+        Text = "Game image scaling",
+        Values = { "Crop", "Fit", "Stretch", "Tile" },
+        Default = game and game.State.ScaleType or "Crop",
+        Callback = function(value)
+            if self.GameController then self.GameController:SetScaleType(value) end
+        end,
+    })
+
+    blurBox:AddToggle("BG_BlurEnabled", {
+        Text = "Blur game when menu is open",
+        Default = self.Library.UseBlur == true,
+        Callback = function(value)
+            self:SetBlurEnabled(value)
+        end,
+    })
+
+    blurBox:AddSlider("BG_BlurSize", {
+        Text = "Blur strength",
+        Default = self.Library.BlurSize or 15,
+        Min = 0, Max = 56, Rounding = 0,
+        Callback = function(value)
+            self:SetBlurSize(value)
+        end,
+    })
+
+    return {
+        Menu = menuBox,
+        Game = gameBox,
+        Blur = blurBox,
+    }
 end
 
 return Background
